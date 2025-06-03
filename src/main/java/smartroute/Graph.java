@@ -3,47 +3,79 @@ package smartroute;
 import java.util.*;
 
 public class Graph {
-    private final Map<String, List<Edge>> adjacencyList;
+    private Map<String, List<Edge>> adjacencyList;
 
     public Graph() {
         adjacencyList = new HashMap<>();
     }
 
-    public void addVertex(String vertex) {
-        adjacencyList.putIfAbsent(vertex, new ArrayList<>());
-    }
+    // Add an edge (undirected graph)
+    public void addEdge(String src, String dest, int weight) {
+        adjacencyList.putIfAbsent(src, new ArrayList<>());
+        adjacencyList.get(src).add(new Edge(src, dest, weight));
 
-    public void addEdge(String source, String dest, int weight) {
-        adjacencyList.putIfAbsent(source, new ArrayList<>());
         adjacencyList.putIfAbsent(dest, new ArrayList<>());
-        adjacencyList.get(source).add(new Edge(dest, weight));
-        // For undirected graph, also add reverse edge:
-        adjacencyList.get(dest).add(new Edge(source, weight));
+        adjacencyList.get(dest).add(new Edge(dest, src, weight));
     }
 
-    public Map<String, Integer> dijkstra(String start) {
+    // Dijkstra's algorithm to find shortest path from start to end
+    public List<String> dijkstra(String start, String end) {
+        PriorityQueue<NodeDistance> pq = new PriorityQueue<>(Comparator.comparingInt(nd -> nd.distance));
         Map<String, Integer> distances = new HashMap<>();
-        PriorityQueue<Edge> pq = new PriorityQueue<>(Comparator.comparingInt(e -> e.weight));
+        Map<String, String> previous = new HashMap<>();
 
-        for (String vertex : adjacencyList.keySet()) {
-            distances.put(vertex, Integer.MAX_VALUE);
+        // Initialize distances
+        for (String node : adjacencyList.keySet()) {
+            distances.put(node, Integer.MAX_VALUE);
         }
         distances.put(start, 0);
-        pq.offer(new Edge(start, 0));
+        pq.offer(new NodeDistance(start, 0));
 
         while (!pq.isEmpty()) {
-            Edge current = pq.poll();
-            String u = current.destination;
+            NodeDistance current = pq.poll();
+            String currentNode = current.node;
 
-            for (Edge neighbor : adjacencyList.getOrDefault(u, Collections.emptyList())) {
-                int newDist = distances.get(u) + neighbor.weight;
-                if (newDist < distances.get(neighbor.destination)) {
-                    distances.put(neighbor.destination, newDist);
-                    pq.offer(new Edge(neighbor.destination, newDist));
+            if (currentNode.equals(end)) break;
+
+            if (current.distance > distances.get(currentNode)) continue;
+
+            for (Edge edge : adjacencyList.getOrDefault(currentNode, Collections.emptyList())) {
+                String neighbor = edge.getDestination();
+                int newDist = distances.get(currentNode) + edge.getWeight();
+
+                if (newDist < distances.get(neighbor)) {
+                    distances.put(neighbor, newDist);
+                    previous.put(neighbor, currentNode);
+                    pq.offer(new NodeDistance(neighbor, newDist));
                 }
             }
         }
 
-        return distances;
+        // Reconstruct the path
+        List<String> path = new ArrayList<>();
+        String current = end;
+        while (current != null) {
+            path.add(current);
+            current = previous.get(current);
+        }
+        Collections.reverse(path);
+
+        // If no path found, path will only contain 'end' without start, handle this case
+        if (path.size() == 1 && !path.get(0).equals(start)) {
+            return Collections.emptyList();
+        }
+
+        return path;
+    }
+
+    // Helper class for priority queue in Dijkstra
+    private static class NodeDistance {
+        String node;
+        int distance;
+
+        NodeDistance(String node, int distance) {
+            this.node = node;
+            this.distance = distance;
+        }
     }
 }
